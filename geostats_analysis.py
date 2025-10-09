@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def reset_data():
     st.session_state['df'] = None
@@ -86,8 +88,7 @@ elif selected_page == "Análise Exploratória de Dados":
         st.dataframe(df.head(), use_container_width=True)
 
         # Dashboard de gráficos
-        import matplotlib.pyplot as plt
-        import seaborn as sns
+        
 
         dash_col1, dash_col2 = st.columns(2)
 
