@@ -86,7 +86,7 @@ elif selected_page == "Análise Exploratória de Dados":
         st.dataframe(df.head(), use_container_width=True)
 
         # Dashboard de gráficos
-        import matplotlib.pyplot as plt
+        #import matplotlib.pyplot as plt
         import seaborn as sns
 
         dash_col1, dash_col2 = st.columns(2)
@@ -110,3 +110,4 @@ elif selected_page == "Análise Exploratória de Dados":
 elif selected_page == "Análise de Mudança de Modelo":
     st.header("Análise de Mudança de Modelo")
     st.write("Conteúdo para análise de mudança entre modelos.")
+
