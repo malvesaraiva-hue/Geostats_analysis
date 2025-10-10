@@ -329,20 +329,7 @@ elif st.session_state['current_page'] == "geostats":
         st.write("Prévia dos dados filtrados:")
         st.dataframe(df.head(), use_container_width=True)
 
-        # Dashboard de gráficos
-        dash_col1, dash_col2 = st.columns(2)
 
-        with dash_col1:
-            st.subheader("Histograma")
-            fig1 = px.histogram(df, x=coluna, nbins=30, opacity=0.7, title=f"Histograma de {coluna}")
-            fig1.update_layout(xaxis_title=coluna, yaxis_title="Frequência", bargap=0.1)
-            st.plotly_chart(fig1, use_container_width=True)
-
-        with dash_col2:
-            st.subheader("Boxplot")
-            fig2 = px.box(df, x=coluna, points=False, title=f"Boxplot de {coluna}")
-            fig2.update_layout(xaxis_title=coluna, yaxis_title=coluna)
-            st.plotly_chart(fig2, use_container_width=True)
     else:
         st.warning("Faça upload do arquivo .csv na página principal para começar.")
 
