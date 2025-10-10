@@ -17,16 +17,35 @@ def reset_data():
 
 if 'df' not in st.session_state:
     st.session_state['df'] = None
+if 'current_page' not in st.session_state:
+    st.session_state['current_page'] = "main"
+if 'subpage' not in st.session_state:
+    st.session_state['subpage'] = "univariada"
 
-pages = {
-    "Página Principal": "main",
-    "Análise Exploratória de Dados": "geostats",
-    "Análise de Mudança de Modelo": "model_change"
-}
+# Sidebar com navegação
+st.sidebar.title("Navegação")
 
-selected_page = st.sidebar.selectbox("Escolha a página", list(pages.keys()))
+# Botões de navegação principal
+if st.sidebar.button("Página Principal", key="main_btn", use_container_width=True):
+    st.session_state['current_page'] = "main"
 
-if selected_page == "Página Principal":
+# Seção de Análise Exploratória
+st.sidebar.markdown("### Análise Exploratória")
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    if st.button("Univariada", key="uni_btn", use_container_width=True):
+        st.session_state['current_page'] = "geostats"
+        st.session_state['subpage'] = "univariada"
+with col2:
+    if st.button("Multivariada", key="multi_btn", use_container_width=True):
+        st.session_state['current_page'] = "geostats"
+        st.session_state['subpage'] = "multivariada"
+
+if st.sidebar.button("Análise de Mudança", key="change_btn", use_container_width=True):
+    st.session_state['current_page'] = "model_change"
+
+# Navegação baseada no estado
+if st.session_state['current_page'] == "main":
     st.header("Upload de modelo")
     st.write("Estatísticas descritivas e visualização de dados.")
 
@@ -125,8 +144,48 @@ if selected_page == "Página Principal":
         st.subheader("Estatísticas descritivas")
         st.write(df.describe())
 
-elif selected_page == "Análise Exploratória de Dados":
-    st.header("Análise Exploratória de Dados")
+elif st.session_state['current_page'] == "geostats":
+    if st.session_state['subpage'] == "univariada":
+        st.header("Análise Exploratória - Estatística Univariada")
+        # Conteúdo existente da análise univariada aqui
+    elif st.session_state['subpage'] == "multivariada":
+        st.header("Análise Exploratória - Estatística Multivariada")
+        
+        # Verifica se o DataFrame está carregado
+        if st.session_state['df'] is not None:
+            df = st.session_state['df']
+            
+            # Selecionar múltiplas variáveis para análise
+            colunas_numericas = df.select_dtypes(include=['number']).columns
+            variaveis_selecionadas = st.multiselect(
+                "Selecione as variáveis para análise multivariada:",
+                options=colunas_numericas,
+                default=list(colunas_numericas[:2]) if len(colunas_numericas) >= 2 else list(colunas_numericas)
+            )
+            
+            if len(variaveis_selecionadas) >= 2:
+                # Matriz de correlação
+                st.subheader("Matriz de Correlação")
+                corr_matrix = df[variaveis_selecionadas].corr()
+                
+                # Criar heatmap com plotly
+                fig_corr = px.imshow(
+                    corr_matrix,
+                    labels=dict(color="Correlação"),
+                    color_continuous_scale="RdBu_r",
+                    aspect="auto"
+                )
+                fig_corr.update_layout(
+                    title="Matriz de Correlação das Variáveis Selecionadas",
+                    height=500
+                )
+                st.plotly_chart(fig_corr, use_container_width=True)
+                
+                # Estatísticas descritivas das variáveis selecionadas
+                st.subheader("Estatísticas das Variáveis Selecionadas")
+                st.write(df[variaveis_selecionadas].describe())
+            else:
+                st.warning("Selecione pelo menos duas variáveis para análise multivariada.")
 
     # Verifica se o DataFrame está carregado
     if st.session_state['df'] is not None:
@@ -251,7 +310,7 @@ elif selected_page == "Análise Exploratória de Dados":
     else:
         st.warning("Faça upload do arquivo .csv na página principal para começar.")
 
-elif selected_page == "Análise de Mudança de Modelo":
+elif st.session_state['current_page'] == "model_change":
     st.header("Análise de Mudança de Modelo")
     st.write("Conteúdo para análise de mudança entre modelos.")
 
