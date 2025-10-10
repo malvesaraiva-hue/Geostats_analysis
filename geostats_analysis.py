@@ -147,7 +147,78 @@ if st.session_state['current_page'] == "main":
 elif st.session_state['current_page'] == "geostats":
     if st.session_state['subpage'] == "univariada":
         st.header("Análise Exploratória - Estatística Univariada")
-        # Conteúdo existente da análise univariada aqui
+
+        # Verifica se o DataFrame está carregado
+        if st.session_state['df'] is not None:
+            df = st.session_state['df']
+
+            # Identificar variáveis categóricas e contínuas
+            variaveis_categoricas = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            variaveis_continuas = df.select_dtypes(include=['float64', 'float32']).columns.tolist()
+
+            # Layout para seleção de variáveis
+            select_col1, select_col2 = st.columns([1, 1])
+
+            with select_col1:
+                # Seleção da variável contínua para análise
+                coluna = st.selectbox(
+                    "Selecione a variável contínua para análise:",
+                    options=variaveis_continuas,
+                    key="var_continua_select"
+                )
+
+            with select_col2:
+                # Filtro por variável categórica
+                var_categorica = None
+                valor_escolhido = None
+                if variaveis_categoricas:
+                    var_categorica = st.selectbox(
+                        "Filtrar por variável categórica:",
+                        ["Nenhum filtro"] + variaveis_categoricas,
+                        key="var_cat_uni"
+                    )
+
+            # Aplicar filtro se selecionado
+            if var_categorica and var_categorica != "Nenhum filtro":
+                valores_unicos = df[var_categorica].unique().tolist()
+                valor_escolhido = st.selectbox(
+                    f"Valor de {var_categorica}:",
+                    valores_unicos,
+                    key="valor_cat_uni"
+                )
+                df_filtrado = df[df[var_categorica] == valor_escolhido]
+                st.info(f"Filtro aplicado: {var_categorica} = {valor_escolhido}")
+            else:
+                df_filtrado = df.copy()
+
+            # Dashboard de gráficos
+            st.write(f"**Variável selecionada:** `{coluna}`")
+            
+            dash_col1, dash_col2 = st.columns(2)
+
+            with dash_col1:
+                st.subheader("Histograma")
+                fig1 = px.histogram(df_filtrado, x=coluna, nbins=30, opacity=0.7, 
+                                title=f"Histograma de {coluna}")
+                fig1.update_layout(
+                    xaxis_title=coluna,
+                    yaxis_title="Frequência",
+                    bargap=0.1
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+
+            with dash_col2:
+                st.subheader("Boxplot")
+                fig2 = px.box(df_filtrado, x=coluna, points=False,
+                           title=f"Boxplot de {coluna}")
+                fig2.update_layout(
+                    xaxis_title=coluna,
+                    yaxis_title=coluna
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+
+        else:
+            st.warning("Faça upload do arquivo na página principal para começar.")
     elif st.session_state['subpage'] == "multivariada":
         st.header("Análise Exploratória - Estatística Multivariada")
         
