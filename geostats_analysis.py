@@ -57,17 +57,27 @@ if selected_page == "Página Principal":
                 key="z_coord_select"
             )
         
+        # Seleção da variável para colorir os pontos
+        color_var = st.selectbox(
+            "Selecione a variável para colorir os pontos",
+            options=df.select_dtypes(include=['number']).columns,  # apenas variáveis numéricas
+            key="color_var_select"
+        )
+        
         # Criar scatter 3D com as colunas selecionadas
         fig_3d = px.scatter_3d(
             df,
             x=x_coord,
             y=y_coord,
             z=z_coord,
+            color=color_var,
+            color_continuous_scale='RdBu_r',  # escala de cores: azul (frio/baixo) para vermelho (quente/alto)
             title="Distribuição Espacial dos Pontos",
             labels={
                 x_coord: f'Coordenada X ({x_coord})',
                 y_coord: f'Coordenada Y ({y_coord})',
-                z_coord: f'Coordenada Z ({z_coord})'
+                z_coord: f'Coordenada Z ({z_coord})',
+                color_var: f'Valor de {color_var}'
             }
         )
         
@@ -87,7 +97,7 @@ if selected_page == "Página Principal":
         st.plotly_chart(fig_3d, use_container_width=True)
         
         st.subheader("Prévia dos dados")
-        st.write(df)
+        st.dataframe(df.head(), use_container_width=True)
         
         st.subheader("Estatísticas descritivas")
         st.write(df.describe())
