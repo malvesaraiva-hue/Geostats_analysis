@@ -333,16 +333,23 @@ elif st.session_state['current_page'] == "geostats":
                     if plot_type == "Boxplot":
                         show_outliers = st.checkbox("Mostrar outliers", value=True, key="show_outliers")
 
+                # Encontrar colunas de coordenadas
+                coord_cols = {
+                    'X': next((col for col in df_filtrado.columns if 'XC' in col.upper()), None),
+                    'Y': next((col for col in df_filtrado.columns if 'YC' in col.upper()), None),
+                    'Z': next((col for col in df_filtrado.columns if 'ZC' in col.upper()), None)
+                }
+                
                 # Criar o Swath Plot
                 if direcao == "X (Leste-Oeste)":
-                    coord = "XC"
+                    coord = coord_cols['X']
                 elif direcao == "Y (Norte-Sul)":
-                    coord = "YC"
+                    coord = coord_cols['Y']
                 else:
-                    coord = "ZC"
+                    coord = coord_cols['Z']
 
                 # Calcular as fatias
-                if coord in df_filtrado.columns:
+                if coord is not None:
                     min_coord = df_filtrado[coord].min()
                     max_coord = df_filtrado[coord].max()
                     n_slices = int((max_coord - min_coord) / slice_size) + 1
@@ -412,7 +419,12 @@ elif st.session_state['current_page'] == "geostats":
                     
                     st.plotly_chart(fig_swath, use_container_width=True)
                 else:
-                    st.warning(f"Coordenada {coord} não encontrada no conjunto de dados.")
+                    if direcao == "X (Leste-Oeste)":
+                        st.warning("Nenhuma coluna contendo 'XC' foi encontrada no conjunto de dados.")
+                    elif direcao == "Y (Norte-Sul)":
+                        st.warning("Nenhuma coluna contendo 'YC' foi encontrada no conjunto de dados.")
+                    else:
+                        st.warning("Nenhuma coluna contendo 'ZC' foi encontrada no conjunto de dados.")
 
         else:
             st.warning("Faça upload do arquivo na página principal para começar.")
