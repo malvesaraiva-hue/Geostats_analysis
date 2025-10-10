@@ -28,11 +28,50 @@ if selected_page == "Página Principal":
         reset_data()
 
     if st.session_state['df'] is not None:
+        df = st.session_state['df']
         st.success("Arquivo carregado com sucesso!")
-        st.write("Prévia dos dados:")
-        st.write(st.session_state['df'])
-        st.write("Estatísticas descritivas:")
-        st.write(st.session_state['df'].describe())
+        
+        # Verifica se existem as colunas de coordenadas
+        coord_columns = ['XC', 'YC', 'ZC']
+        has_coordinates = all(col in df.columns for col in coord_columns)
+        
+        if has_coordinates:
+            st.subheader("Visualização 3D dos Pontos")
+            
+            # Criar scatter 3D
+            fig_3d = px.scatter_3d(
+                df,
+                x='XC',
+                y='YC',
+                z='ZC',
+                title="Distribuição Espacial dos Pontos",
+                labels={'XC': 'Coordenada X', 'YC': 'Coordenada Y', 'ZC': 'Coordenada Z'}
+            )
+            
+            # Ajustar layout para melhor visualização
+            fig_3d.update_layout(
+                scene=dict(
+                    aspectmode='data',  # preserva a escala real dos dados
+                    camera=dict(
+                        up=dict(x=0, y=0, z=1),
+                        center=dict(x=0, y=0, z=0),
+                        eye=dict(x=1.5, y=1.5, z=1.5)
+                    )
+                ),
+                height=600
+            )
+            
+            st.plotly_chart(fig_3d, use_container_width=True)
+            
+            # Mostrar estatísticas das coordenadas
+            st.subheader("Estatísticas das Coordenadas")
+            st.write(df[coord_columns].describe())
+        
+        st.subheader("Prévia dos dados")
+        st.write(df)
+        
+        st.subheader("Estatísticas descritivas gerais")
+        st.write(df.describe())
 
 elif selected_page == "Análise Exploratória de Dados":
     st.header("Análise Exploratória de Dados")
