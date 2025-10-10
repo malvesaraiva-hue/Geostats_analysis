@@ -31,46 +31,65 @@ if selected_page == "Página Principal":
         df = st.session_state['df']
         st.success("Arquivo carregado com sucesso!")
         
-        # Verifica se existem as colunas de coordenadas
-        coord_columns = ['XC', 'YC', 'ZC']
-        has_coordinates = all(col in df.columns for col in coord_columns)
+        st.subheader("Visualização 3D dos Pontos")
         
-        if has_coordinates:
-            st.subheader("Visualização 3D dos Pontos")
-            
-            # Criar scatter 3D
-            fig_3d = px.scatter_3d(
-                df,
-                x='XC',
-                y='YC',
-                z='ZC',
-                title="Distribuição Espacial dos Pontos",
-                labels={'XC': 'Coordenada X', 'YC': 'Coordenada Y', 'ZC': 'Coordenada Z'}
+        # Colunas para seleção das coordenadas
+        coord_col1, coord_col2, coord_col3 = st.columns(3)
+        
+        with coord_col1:
+            x_coord = st.selectbox(
+                "Selecione a coordenada X",
+                options=df.columns,
+                key="x_coord_select"
             )
-            
-            # Ajustar layout para melhor visualização
-            fig_3d.update_layout(
-                scene=dict(
-                    aspectmode='data',  # preserva a escala real dos dados
-                    camera=dict(
-                        up=dict(x=0, y=0, z=1),
-                        center=dict(x=0, y=0, z=0),
-                        eye=dict(x=1.5, y=1.5, z=1.5)
-                    )
-                ),
-                height=600
+        
+        with coord_col2:
+            y_coord = st.selectbox(
+                "Selecione a coordenada Y",
+                options=df.columns,
+                key="y_coord_select"
             )
-            
-            st.plotly_chart(fig_3d, use_container_width=True)
-            
-            # Mostrar estatísticas das coordenadas
-            st.subheader("Estatísticas das Coordenadas")
-            st.write(df[coord_columns].describe())
+        
+        with coord_col3:
+            z_coord = st.selectbox(
+                "Selecione a coordenada Z",
+                options=df.columns,
+                key="z_coord_select"
+            )
+        
+        # Criar scatter 3D com as colunas selecionadas
+        fig_3d = px.scatter_3d(
+            df,
+            x=x_coord,
+            y=y_coord,
+            z=z_coord,
+            title="Distribuição Espacial dos Pontos",
+            labels={
+                x_coord: f'Coordenada X ({x_coord})',
+                y_coord: f'Coordenada Y ({y_coord})',
+                z_coord: f'Coordenada Z ({z_coord})'
+            }
+        )
+        
+        # Ajustar layout para melhor visualização
+        fig_3d.update_layout(
+            scene=dict(
+                aspectmode='data',  # preserva a escala real dos dados
+                camera=dict(
+                    up=dict(x=0, y=0, z=1),
+                    center=dict(x=0, y=0, z=0),
+                    eye=dict(x=1.5, y=1.5, z=1.5)
+                )
+            ),
+            height=600
+        )
+        
+        st.plotly_chart(fig_3d, use_container_width=True)
         
         st.subheader("Prévia dos dados")
         st.write(df)
         
-        st.subheader("Estatísticas descritivas gerais")
+        st.subheader("Estatísticas descritivas")
         st.write(df.describe())
 
 elif selected_page == "Análise Exploratória de Dados":
