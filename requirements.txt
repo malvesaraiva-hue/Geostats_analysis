@@ -3,3 +3,4 @@ seaborn
 streamlit
 plotly
 statsmodels
+pyarrow
