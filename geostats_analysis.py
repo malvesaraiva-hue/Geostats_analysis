@@ -12,6 +12,64 @@ st.set_page_config(
 # Aumentar o limite de upload
 st.config.set_option('server.maxUploadSize', 1000)
 
+# Configuração de estilo personalizado
+st.markdown("""
+<style>
+    /* Fundo principal */
+    .stApp {
+        background-color: #2E2E38;
+    }
+    
+    /* Barra lateral */
+    [data-testid="stSidebar"] {
+        background-color: #747480;
+    }
+    
+    /* Botões na barra lateral */
+    .stButton button {
+        background-color: #FFE600 !important;
+        color: black !important;
+        border: none !important;
+        font-weight: bold !important;
+    }
+    
+    .stButton button:hover {
+        background-color: #E6CF00 !important;
+        color: black !important;
+    }
+    
+    /* Ajuste de cores para melhor legibilidade */
+    h1, h2, h3 {
+        color: white !important;
+    }
+    
+    p, label {
+        color: white !important;
+    }
+    
+    [data-testid="stMarkdownContainer"] {
+        color: white;
+    }
+    
+    /* Ajuste das cores dos selectbox */
+    div[data-baseweb="select"] > div {
+        background-color: #747480 !important;
+        color: white !important;
+    }
+    
+    /* Ajuste das cores dos inputs */
+    .stTextInput input {
+        background-color: #747480 !important;
+        color: white !important;
+    }
+    
+    /* Ajuste das bordas dos componentes */
+    .stSelectbox, .stMultiSelect {
+        border-color: #747480 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 def reset_data():
     st.session_state['df'] = None
 
