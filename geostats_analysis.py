@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
 
 def reset_data():
     st.session_state['df'] = None
@@ -94,17 +93,15 @@ elif selected_page == "Análise Exploratória de Dados":
 
         with dash_col1:
             st.subheader("Histograma")
-            fig1, ax1 = plt.subplots(figsize=(4, 3))
-            sns.histplot(df[coluna], kde=True, ax=ax1)
-            ax1.set_xlabel(coluna)
-            st.pyplot(fig1, use_container_width=True)
+            fig1 = px.histogram(df, x=coluna, nbins=30, marginal="box", opacity=0.7, title=f"Histograma de {coluna}")
+            fig1.update_layout(xaxis_title=coluna, yaxis_title="Frequência", bargap=0.1)
+            st.plotly_chart(fig1, use_container_width=True)
 
         with dash_col2:
             st.subheader("Boxplot")
-            fig2, ax2 = plt.subplots(figsize=(4, 3))
-            sns.boxplot(x=df[coluna], ax=ax2)
-            ax2.set_xlabel(coluna)
-            st.pyplot(fig2, use_container_width=True)
+            fig2 = px.box(df, x=coluna, points="all", title=f"Boxplot de {coluna}")
+            fig2.update_layout(xaxis_title=coluna, yaxis_title=coluna)
+            st.plotly_chart(fig2, use_container_width=True)
     else:
         st.warning("Faça upload do arquivo .csv na página principal para começar.")
 
