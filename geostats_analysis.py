@@ -28,7 +28,7 @@ st.markdown("""
     /* Botões na barra lateral */
     .stButton button {
         background-color: #FFE600 !important;
-        color: black !important;
+        color: #1A1A24 !important;
         border: none !important;
         font-weight: bold !important;
     }
