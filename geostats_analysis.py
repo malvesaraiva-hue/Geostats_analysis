@@ -26,15 +26,24 @@ st.markdown("""
     }
     
     /* Botões na barra lateral */
-    .stButton button {
+    .stButton > button, .stButton button, div[data-testid="stHorizontalBlock"] button, button[kind="secondary"] {
         background-color: #FFE600 !important;
         color: #1A1A24 !important;
         border: none !important;
         font-weight: bold !important;
     }
     
-    .stButton button:hover {
+    .stButton > button:hover, .stButton button:hover, div[data-testid="stHorizontalBlock"] button:hover, button[kind="secondary"]:hover {
         background-color: #E6CF00 !important;
+        color: #1A1A24 !important;
+    }
+    
+    /* Forçar cor do texto em todos os botões */
+    button[data-testid="baseButton-secondary"], 
+    .stButton > button > div, 
+    .stButton button > div,
+    .stButton button p,
+    .stButton button span {
         color: #1A1A24 !important;
     }
     
