@@ -155,10 +155,39 @@ elif st.session_state['current_page'] == "geostats":
         if st.session_state['df'] is not None:
             df = st.session_state['df']
             
-            # Seleção de variáveis numéricas
-            colunas_numericas = df.select_dtypes(include=['number']).columns
-
-            # Layout em duas colunas
+            # Identificar variáveis categóricas e contínuas
+            variaveis_categoricas = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            variaveis_continuas = df.select_dtypes(include=['float64', 'float32']).columns.tolist()
+            
+            # Filtro por variável categórica
+            if variaveis_categoricas:
+                st.subheader("Filtro de Dados")
+                filter_col1, filter_col2 = st.columns([1, 1])
+                
+                with filter_col1:
+                    var_categorica = st.selectbox(
+                        "Filtrar por variável categórica:",
+                        ["Nenhum filtro"] + variaveis_categoricas,
+                        key="var_cat_multi"
+                    )
+                
+                with filter_col2:
+                    if var_categorica != "Nenhum filtro":
+                        valores_unicos = df[var_categorica].unique().tolist()
+                        valor_filtro = st.selectbox(
+                            f"Valor de {var_categorica}:",
+                            valores_unicos,
+                            key="valor_cat_multi"
+                        )
+                        # Aplicar filtro
+                        df_filtrado = df[df[var_categorica] == valor_filtro]
+                        st.info(f"Filtro aplicado: {var_categorica} = {valor_filtro}")
+                    else:
+                        df_filtrado = df.copy()
+            else:
+                df_filtrado = df.copy()
+            
+            # Layout em duas colunas para os gráficos
             col1, col2 = st.columns(2)
 
             with col1:
@@ -166,12 +195,12 @@ elif st.session_state['current_page'] == "geostats":
                 # Seleção das variáveis para o crossplot
                 var_x = st.selectbox(
                     "Variável X:",
-                    options=colunas_numericas,
+                    options=variaveis_continuas,
                     key="var_x_multi"
                 )
                 var_y = st.selectbox(
                     "Variável Y:",
-                    options=[col for col in colunas_numericas if col != var_x],
+                    options=[col for col in variaveis_continuas if col != var_x],
                     key="var_y_multi"
                 )
                 
@@ -196,7 +225,7 @@ elif st.session_state['current_page'] == "geostats":
 
                 # Criar crossplot
                 fig_cross = px.scatter(
-                    plot_data,
+                    df_filtrado,  # Usando dados filtrados
                     x=x_var,
                     y=y_var,
                     title=f"Crossplot: {x_var} vs {y_var}",
@@ -228,13 +257,13 @@ elif st.session_state['current_page'] == "geostats":
                 # Seleção de variáveis para a matriz de correlação
                 variaveis_matriz = st.multiselect(
                     "Selecione as variáveis para a matriz de correlação:",
-                    options=colunas_numericas,
-                    default=list(colunas_numericas[:4]) if len(colunas_numericas) >= 4 else list(colunas_numericas)
+                    options=variaveis_continuas,
+                    default=list(variaveis_continuas[:4]) if len(variaveis_continuas) >= 4 else list(variaveis_continuas)
                 )
                 
                 if len(variaveis_matriz) >= 2:
-                    # Matriz de correlação
-                    corr_matrix = df[variaveis_matriz].corr()
+                    # Matriz de correlação usando dados filtrados
+                    corr_matrix = df_filtrado[variaveis_matriz].corr()
                     
                     # Criar heatmap com plotly
                     fig_corr = px.imshow(
