@@ -284,6 +284,136 @@ elif st.session_state['current_page'] == "geostats":
                 )
                 st.plotly_chart(fig2, use_container_width=True)
 
+                # Swath Plot
+                st.subheader("Swath Plot")
+                
+                # Opções do Swath Plot
+                swath_col1, swath_col2 = st.columns(2)
+                
+                with swath_col1:
+                    # Seleção da direção
+                    direcao = st.selectbox(
+                        "Direção do Swath:",
+                        options=["X (Leste-Oeste)", "Y (Norte-Sul)", "Z (Elevação)"],
+                        key="swath_direction"
+                    )
+                    
+                    # Tamanho das fatias
+                    slice_size = st.number_input(
+                        "Tamanho das fatias:",
+                        min_value=1.0,
+                        value=10.0,
+                        step=1.0,
+                        key="slice_size"
+                    )
+                    
+                    # Tipo de visualização
+                    plot_type = st.selectbox(
+                        "Tipo de visualização:",
+                        options=["Boxplot", "Tendência"],
+                        key="plot_type"
+                    )
+                
+                with swath_col2:
+                    # Cor dos boxplots
+                    box_color = st.color_picker(
+                        "Cor dos boxplots:",
+                        value="#1f77b4",
+                        key="box_color"
+                    )
+                    
+                    # Mostrar número de amostras
+                    show_samples = st.selectbox(
+                        "Exibir número de amostras:",
+                        options=["Não exibir", "Texto", "Histograma"],
+                        key="show_samples"
+                    )
+                    
+                    # Mostrar outliers (apenas para boxplot)
+                    if plot_type == "Boxplot":
+                        show_outliers = st.checkbox("Mostrar outliers", value=True, key="show_outliers")
+
+                # Criar o Swath Plot
+                if direcao == "X (Leste-Oeste)":
+                    coord = "XC"
+                elif direcao == "Y (Norte-Sul)":
+                    coord = "YC"
+                else:
+                    coord = "ZC"
+
+                # Calcular as fatias
+                if coord in df_filtrado.columns:
+                    min_coord = df_filtrado[coord].min()
+                    max_coord = df_filtrado[coord].max()
+                    n_slices = int((max_coord - min_coord) / slice_size) + 1
+                    
+                    # Criar os bins
+                    df_filtrado['slice'] = pd.cut(df_filtrado[coord], 
+                                                bins=n_slices, 
+                                                labels=[f"Slice {i+1}" for i in range(n_slices)])
+                    
+                    # Calcular estatísticas por fatia
+                    stats = df_filtrado.groupby('slice')[coluna].agg(['mean', 'std', 'count'])
+                    slice_centers = [(i + 0.5) * slice_size + min_coord for i in range(n_slices)]
+                    
+                    # Criar o gráfico
+                    if plot_type == "Boxplot":
+                        fig_swath = px.box(df_filtrado, x='slice', y=coluna,
+                                         title=f"Swath Plot - {direcao} - {coluna}",
+                                         points='outliers' if show_outliers else False,
+                                         color_discrete_sequence=[box_color])
+                        
+                        # Adicionar linha conectando as médias
+                        fig_swath.add_scatter(x=stats.index, y=stats['mean'],
+                                            mode='lines+markers',
+                                            name='Média',
+                                            line=dict(color='red', width=2))
+                        
+                    else:  # Tendência
+                        fig_swath = px.line(x=slice_centers, y=stats['mean'],
+                                          title=f"Swath Plot - {direcao} - {coluna}")
+                        
+                        # Adicionar bandas de desvio padrão
+                        fig_swath.add_scatter(x=slice_centers, 
+                                            y=stats['mean'] + stats['std'],
+                                            mode='lines',
+                                            name='+1 Std Dev',
+                                            line=dict(dash='dash'))
+                        fig_swath.add_scatter(x=slice_centers, 
+                                            y=stats['mean'] - stats['std'],
+                                            mode='lines',
+                                            name='-1 Std Dev',
+                                            line=dict(dash='dash'),
+                                            fill='tonexty')
+
+                    # Ajustar layout
+                    fig_swath.update_layout(
+                        xaxis_title=coord,
+                        yaxis_title=coluna,
+                        showlegend=True
+                    )
+                    
+                    # Mostrar número de amostras
+                    if show_samples != "Não exibir":
+                        if show_samples == "Texto":
+                            for i, count in enumerate(stats['count']):
+                                fig_swath.add_annotation(x=i, y=stats['mean'].max(),
+                                                       text=f"n={count}",
+                                                       showarrow=False)
+                        else:  # Histograma
+                            fig_swath.add_bar(x=stats.index, y=stats['count'],
+                                            name='Número de amostras',
+                                            yaxis='y2')
+                            fig_swath.update_layout(
+                                yaxis2=dict(title='Número de amostras',
+                                          overlaying='y',
+                                          side='right')
+                            )
+                    
+                    st.plotly_chart(fig_swath, use_container_width=True)
+                else:
+                    st.warning(f"Coordenada {coord} não encontrada no conjunto de dados.")
+
         else:
             st.warning("Faça upload do arquivo na página principal para começar.")
     elif st.session_state['subpage'] == "multivariada":
