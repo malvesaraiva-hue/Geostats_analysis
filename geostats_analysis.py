@@ -2,6 +2,16 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
+# Configurar o tamanho máximo do upload para 1000 MB
+st.set_page_config(
+    page_title="Análise Geoestatística",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Aumentar o limite de upload
+st.config.set_option('server.maxUploadSize', 1000)
+
 def reset_data():
     st.session_state['df'] = None
 
