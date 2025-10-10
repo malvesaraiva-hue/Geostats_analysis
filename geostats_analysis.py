@@ -87,9 +87,7 @@ elif selected_page == "Análise Exploratória de Dados":
         st.dataframe(df.head(), use_container_width=True)
 
         # Dashboard de gráficos
-        
-
-        dash_col1, dash_col2 = st.columns(2)
+        dash_col1, dash_col2, dash_col3 = st.columns(3)
 
         with dash_col1:
             st.subheader("Histograma")
@@ -102,6 +100,63 @@ elif selected_page == "Análise Exploratória de Dados":
             fig2 = px.box(df, x=coluna, points=False, title=f"Boxplot de {coluna}")
             fig2.update_layout(xaxis_title=coluna, yaxis_title=coluna)
             st.plotly_chart(fig2, use_container_width=True)
+
+        with dash_col3:
+            st.subheader("Crossplot")
+            # Seleção da segunda variável para o crossplot
+            coluna_y = st.selectbox(
+                "Variável Y para crossplot:",
+                [col for col in colunas_numericas if col != coluna],
+                key="coluna_crossplot_select"
+            )
+            
+            # Opções de transformação
+            col_options1, col_options2 = st.columns(2)
+            with col_options1:
+                use_log_x = st.checkbox("Log10 escala X", key="log_x")
+                same_bounds = st.checkbox("Mesmos limites nos eixos", key="same_bounds")
+            with col_options2:
+                use_log_y = st.checkbox("Log10 escala Y", key="log_y")
+                swap_vars = st.checkbox("Trocar variáveis", key="swap_vars")
+
+            # Preparar dados para o crossplot
+            plot_data = df.copy()
+            x_var = coluna_y if swap_vars else coluna
+            y_var = coluna if swap_vars else coluna_y
+
+            if use_log_x:
+                plot_data = plot_data[plot_data[x_var] > 0]
+            if use_log_y:
+                plot_data = plot_data[plot_data[y_var] > 0]
+
+            # Criar crossplot
+            fig3 = px.scatter(
+                plot_data,
+                x=x_var,
+                y=y_var,
+                title=f"Crossplot: {x_var} vs {y_var}",
+                trendline="ols"
+            )
+
+            # Aplicar transformações log se selecionadas
+            if use_log_x:
+                fig3.update_xaxes(type="log")
+            if use_log_y:
+                fig3.update_yaxes(type="log")
+
+            # Aplicar mesmos limites se selecionado
+            if same_bounds:
+                all_values = pd.concat([plot_data[x_var], plot_data[y_var]])
+                min_val = all_values.min()
+                max_val = all_values.max()
+                fig3.update_xaxes(range=[min_val, max_val])
+                fig3.update_yaxes(range=[min_val, max_val])
+
+            # Calcular e mostrar correlação
+            corr = plot_data[x_var].corr(plot_data[y_var])
+            st.write(f"Correlação: {corr:.3f}")
+            
+            st.plotly_chart(fig3, use_container_width=True)
     else:
         st.warning("Faça upload do arquivo .csv na página principal para começar.")
 
