@@ -30,9 +30,22 @@ if selected_page == "Página Principal":
     st.header("Upload de modelo")
     st.write("Estatísticas descritivas e visualização de dados.")
 
-    model_1 = st.file_uploader("Faça upload do arquivo .csv", type="csv")
+    model_1 = st.file_uploader("Faça upload do arquivo (.csv ou .parquet)", type=["csv", "parquet"])
     if model_1 is not None:
-        st.session_state['df'] = pd.read_csv(model_1)
+        # Verificar a extensão do arquivo
+        file_extension = model_1.name.split('.')[-1].lower()
+        
+        try:
+            if file_extension == 'csv':
+                st.session_state['df'] = pd.read_csv(model_1)
+            elif file_extension == 'parquet':
+                st.session_state['df'] = pd.read_parquet(model_1)
+                
+            # Exibir informação sobre o formato do arquivo carregado
+            st.info(f"Arquivo {model_1.name} carregado com sucesso ({file_extension.upper()})")
+        except Exception as e:
+            st.error(f"Erro ao carregar o arquivo: {str(e)}")
+            st.session_state['df'] = None
 
     if st.button("Resetar dados"):
         reset_data()
