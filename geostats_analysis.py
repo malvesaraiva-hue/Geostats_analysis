@@ -310,16 +310,6 @@ elif st.session_state['current_page'] == "geostats":
                         help="Selecione o valor para filtrar a variável discreta."
                     )
 
-        with col2:
-            # Seleção da variável numérica para análise
-            colunas_numericas = df.select_dtypes(include=['number']).columns
-            coluna = st.selectbox(
-                "Variável para análise:",
-                colunas_numericas,
-                key="coluna_analise_select",
-                help="Selecione a variável numérica para análise."
-            )
-
         
     else:
         st.warning("Faça upload do arquivo .csv na página principal para começar.")
