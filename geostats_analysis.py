@@ -283,34 +283,7 @@ elif st.session_state['current_page'] == "geostats":
     # Verifica se o DataFrame está carregado
     if st.session_state['df'] is not None:
         df = st.session_state['df']
-
-        # Layout para filtros e seleção de variável
-        col1, col2 = st.columns([1, 1])
-
-        # Identifica variáveis discretas (alfanuméricas)
-        variaveis_discretas = df.select_dtypes(include=['object', 'category']).columns.tolist()
-
-        with col1:
-            # Filtro por variável discreta
-            var_discreta = None
-            valor_escolhido = None
-            if variaveis_discretas:
-                var_discreta = st.selectbox(
-                    "Filtrar por variável discreta:",
-                    ["Nenhum filtro"] + variaveis_discretas,
-                    key="var_discreta_select",
-                    help="Selecione uma variável discreta para filtrar os dados."
-                )
-                if var_discreta != "Nenhum filtro":
-                    valores = df[var_discreta].unique().tolist()
-                    valor_escolhido = st.selectbox(
-                        f"Valor de {var_discreta}:",
-                        valores,
-                        key="valor_discreto_select",
-                        help="Selecione o valor para filtrar a variável discreta."
-                    )
-
-        
+    
     else:
         st.warning("Faça upload do arquivo .csv na página principal para começar.")
 
