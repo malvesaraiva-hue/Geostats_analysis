@@ -155,37 +155,101 @@ elif st.session_state['current_page'] == "geostats":
         if st.session_state['df'] is not None:
             df = st.session_state['df']
             
-            # Selecionar múltiplas variáveis para análise
+            # Seleção de variáveis numéricas
             colunas_numericas = df.select_dtypes(include=['number']).columns
-            variaveis_selecionadas = st.multiselect(
-                "Selecione as variáveis para análise multivariada:",
-                options=colunas_numericas,
-                default=list(colunas_numericas[:2]) if len(colunas_numericas) >= 2 else list(colunas_numericas)
-            )
-            
-            if len(variaveis_selecionadas) >= 2:
-                # Matriz de correlação
+
+            # Layout em duas colunas
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Crossplot")
+                # Seleção das variáveis para o crossplot
+                var_x = st.selectbox(
+                    "Variável X:",
+                    options=colunas_numericas,
+                    key="var_x_multi"
+                )
+                var_y = st.selectbox(
+                    "Variável Y:",
+                    options=[col for col in colunas_numericas if col != var_x],
+                    key="var_y_multi"
+                )
+                
+                # Opções de transformação
+                opt_col1, opt_col2 = st.columns(2)
+                with opt_col1:
+                    use_log_x = st.checkbox("Log10 escala X", key="log_x_multi")
+                    same_bounds = st.checkbox("Mesmos limites nos eixos", key="same_bounds_multi")
+                with opt_col2:
+                    use_log_y = st.checkbox("Log10 escala Y", key="log_y_multi")
+                    swap_vars = st.checkbox("Trocar variáveis", key="swap_vars_multi")
+
+                # Preparar dados para o crossplot
+                plot_data = df.copy()
+                x_var = var_y if swap_vars else var_x
+                y_var = var_x if swap_vars else var_y
+
+                if use_log_x:
+                    plot_data = plot_data[plot_data[x_var] > 0]
+                if use_log_y:
+                    plot_data = plot_data[plot_data[y_var] > 0]
+
+                # Criar crossplot
+                fig_cross = px.scatter(
+                    plot_data,
+                    x=x_var,
+                    y=y_var,
+                    title=f"Crossplot: {x_var} vs {y_var}",
+                    trendline="ols"
+                )
+
+                # Aplicar transformações log se selecionadas
+                if use_log_x:
+                    fig_cross.update_xaxes(type="log")
+                if use_log_y:
+                    fig_cross.update_yaxes(type="log")
+
+                # Aplicar mesmos limites se selecionado
+                if same_bounds:
+                    all_values = pd.concat([plot_data[x_var], plot_data[y_var]])
+                    min_val = all_values.min()
+                    max_val = all_values.max()
+                    fig_cross.update_xaxes(range=[min_val, max_val])
+                    fig_cross.update_yaxes(range=[min_val, max_val])
+
+                # Calcular e mostrar correlação
+                corr = plot_data[x_var].corr(plot_data[y_var])
+                st.write(f"Correlação: {corr:.3f}")
+                
+                st.plotly_chart(fig_cross, use_container_width=True)
+
+            with col2:
                 st.subheader("Matriz de Correlação")
-                corr_matrix = df[variaveis_selecionadas].corr()
-                
-                # Criar heatmap com plotly
-                fig_corr = px.imshow(
-                    corr_matrix,
-                    labels=dict(color="Correlação"),
-                    color_continuous_scale="RdBu_r",
-                    aspect="auto"
+                # Seleção de variáveis para a matriz de correlação
+                variaveis_matriz = st.multiselect(
+                    "Selecione as variáveis para a matriz de correlação:",
+                    options=colunas_numericas,
+                    default=list(colunas_numericas[:4]) if len(colunas_numericas) >= 4 else list(colunas_numericas)
                 )
-                fig_corr.update_layout(
-                    title="Matriz de Correlação das Variáveis Selecionadas",
-                    height=500
-                )
-                st.plotly_chart(fig_corr, use_container_width=True)
                 
-                # Estatísticas descritivas das variáveis selecionadas
-                st.subheader("Estatísticas das Variáveis Selecionadas")
-                st.write(df[variaveis_selecionadas].describe())
-            else:
-                st.warning("Selecione pelo menos duas variáveis para análise multivariada.")
+                if len(variaveis_matriz) >= 2:
+                    # Matriz de correlação
+                    corr_matrix = df[variaveis_matriz].corr()
+                    
+                    # Criar heatmap com plotly
+                    fig_corr = px.imshow(
+                        corr_matrix,
+                        labels=dict(color="Correlação"),
+                        color_continuous_scale="RdBu_r",
+                        aspect="auto"
+                    )
+                    fig_corr.update_layout(
+                        title="Matriz de Correlação das Variáveis Selecionadas",
+                        height=500
+                    )
+                    st.plotly_chart(fig_corr, use_container_width=True)
+                else:
+                    st.warning("Selecione pelo menos duas variáveis para a matriz de correlação.")
 
     # Verifica se o DataFrame está carregado
     if st.session_state['df'] is not None:
@@ -237,7 +301,7 @@ elif st.session_state['current_page'] == "geostats":
         st.dataframe(df.head(), use_container_width=True)
 
         # Dashboard de gráficos
-        dash_col1, dash_col2, dash_col3 = st.columns(3)
+        dash_col1, dash_col2 = st.columns(2)
 
         with dash_col1:
             st.subheader("Histograma")
@@ -250,63 +314,6 @@ elif st.session_state['current_page'] == "geostats":
             fig2 = px.box(df, x=coluna, points=False, title=f"Boxplot de {coluna}")
             fig2.update_layout(xaxis_title=coluna, yaxis_title=coluna)
             st.plotly_chart(fig2, use_container_width=True)
-
-        with dash_col3:
-            st.subheader("Crossplot")
-            # Seleção da segunda variável para o crossplot
-            coluna_y = st.selectbox(
-                "Variável Y para crossplot:",
-                [col for col in colunas_numericas if col != coluna],
-                key="coluna_crossplot_select"
-            )
-            
-            # Opções de transformação
-            col_options1, col_options2 = st.columns(2)
-            with col_options1:
-                use_log_x = st.checkbox("Log10 escala X", key="log_x")
-                same_bounds = st.checkbox("Mesmos limites nos eixos", key="same_bounds")
-            with col_options2:
-                use_log_y = st.checkbox("Log10 escala Y", key="log_y")
-                swap_vars = st.checkbox("Trocar variáveis", key="swap_vars")
-
-            # Preparar dados para o crossplot
-            plot_data = df.copy()
-            x_var = coluna_y if swap_vars else coluna
-            y_var = coluna if swap_vars else coluna_y
-
-            if use_log_x:
-                plot_data = plot_data[plot_data[x_var] > 0]
-            if use_log_y:
-                plot_data = plot_data[plot_data[y_var] > 0]
-
-            # Criar crossplot
-            fig3 = px.scatter(
-                plot_data,
-                x=x_var,
-                y=y_var,
-                title=f"Crossplot: {x_var} vs {y_var}",
-                trendline="ols"
-            )
-
-            # Aplicar transformações log se selecionadas
-            if use_log_x:
-                fig3.update_xaxes(type="log")
-            if use_log_y:
-                fig3.update_yaxes(type="log")
-
-            # Aplicar mesmos limites se selecionado
-            if same_bounds:
-                all_values = pd.concat([plot_data[x_var], plot_data[y_var]])
-                min_val = all_values.min()
-                max_val = all_values.max()
-                fig3.update_xaxes(range=[min_val, max_val])
-                fig3.update_yaxes(range=[min_val, max_val])
-
-            # Calcular e mostrar correlação
-            corr = plot_data[x_var].corr(plot_data[y_var])
-            st.write(f"Correlação: {corr:.3f}")
-            
-            st.plotly_chart(fig3, use_container_width=True)
     else:
         st.warning("Faça upload do arquivo .csv na página principal para começar.")
 
