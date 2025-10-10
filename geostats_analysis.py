@@ -35,7 +35,7 @@ st.markdown("""
     
     .stButton button:hover {
         background-color: #E6CF00 !important;
-        color: black !important;
+        color: #1A1A24 !important;
     }
     
     /* Ajuste de cores para melhor legibilidade */
