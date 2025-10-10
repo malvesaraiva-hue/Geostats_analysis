@@ -320,16 +320,7 @@ elif st.session_state['current_page'] == "geostats":
                 help="Selecione a variável numérica para análise."
             )
 
-        # Aplica filtro se selecionado
-        if var_discreta and var_discreta != "Nenhum filtro" and valor_escolhido is not None:
-            df = df[df[var_discreta] == valor_escolhido]
-            st.info(f"Filtro aplicado: {var_discreta} = {valor_escolhido}")
-
-        st.write(f"**Variável selecionada:** `{coluna}`")
-        st.write("Prévia dos dados filtrados:")
-        st.dataframe(df.head(), use_container_width=True)
-
-
+        
     else:
         st.warning("Faça upload do arquivo .csv na página principal para começar.")
 
