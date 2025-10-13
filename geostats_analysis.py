@@ -403,6 +403,9 @@ elif st.session_state['current_page'] == "geostats":
                         key="n_classes_chi2"
                     )
 
+                    # Calcular teste Chi-quadrado
+                    observed, bins = np.histogram(df_filtrado[coluna], bins=n_classes)
+
                     # Definir a distribuição teórica novamente para o teste
                     if distribution == "Gaussian":
                         theoretical_dist = stats.norm(loc=df_filtrado[coluna].mean(), scale=df_filtrado[coluna].std())
@@ -417,19 +420,30 @@ elif st.session_state['current_page'] == "geostats":
                     else:  # Exponential
                         theoretical_dist = stats.expon(scale=1/df_filtrado[coluna].mean())
 
-                    # Calcular teste Chi-quadrado
-                    observed, bins = np.histogram(df_filtrado[coluna], bins=n_classes)
                     expected = len(df_filtrado[coluna]) * np.diff(
                         theoretical_dist.cdf(bins)
                     )
-
-                    chi2_stat, p_value = stats.chisquare(observed, expected)
-
-                    st.write(f"""
-                    **Resultados do teste Chi-quadrado:**
-                    - Estatística Chi-quadrado: {chi2_stat:.2f}
-                    - Valor-p: {p_value:.4f}
-                    """)
+                    
+                    # Filtrar classes com valores muito pequenos
+                    mask = (observed > 0) & (expected > 0)
+                    if np.sum(mask) >= 2:  # Precisa de pelo menos 2 classes para o teste
+                        chi2_stat, p_value = stats.chisquare(
+                            observed[mask], 
+                            expected[mask]
+                        )
+                        
+                        st.write(f"""
+                        **Resultados do teste Chi-quadrado:**
+                        - Estatística Chi-quadrado: {chi2_stat:.2f}
+                        - Valor-p: {p_value:.4f}
+                        - Classes válidas: {np.sum(mask)} de {len(mask)}
+                        """)
+                    else:
+                        st.warning("""
+                        Não foi possível realizar o teste Chi-quadrado.
+                        Número insuficiente de classes com dados válidos.
+                        Tente aumentar o número de classes ou verificar a distribuição dos dados.
+                        """)
             else:
                 st.warning(f"Nenhum dado disponível para {coluna} após a filtragem.")
 
