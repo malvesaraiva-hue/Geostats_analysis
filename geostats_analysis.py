@@ -88,6 +88,8 @@ if 'current_page' not in st.session_state:
     st.session_state['current_page'] = "main"
 if 'subpage' not in st.session_state:
     st.session_state['subpage'] = "univariada"
+if 'amostragem_page' not in st.session_state:  # Nova linha
+    st.session_state['amostragem_page'] = "validacao"  # Nova linha
 
 # Sidebar com navegação
 st.sidebar.title("Navegação")
@@ -107,6 +109,18 @@ with col2:
     if st.button("Multivariada", key="multi_btn", use_container_width=True):
         st.session_state['current_page'] = "geostats"
         st.session_state['subpage'] = "multivariada"
+
+# Seção de Amostragem
+st.sidebar.markdown("### Amostragem")
+amostragem_col1, amostragem_col2 = st.sidebar.columns(2)
+with amostragem_col1:
+    if st.button("Validação", key="validacao_btn", use_container_width=True):
+        st.session_state['current_page'] = "amostragem"
+        st.session_state['subpage'] = "validacao"
+with amostragem_col2:
+    if st.button("Protocolo", key="protocolo_btn", use_container_width=True):
+        st.session_state['current_page'] = "amostragem"
+        st.session_state['subpage'] = "protocolo"
 
 if st.sidebar.button("Análise de Mudança", key="change_btn", use_container_width=True):
     st.session_state['current_page'] = "model_change"
@@ -768,5 +782,14 @@ elif st.session_state['current_page'] == "geostats":
 elif st.session_state['current_page'] == "model_change":
     st.header("Análise de Mudança de Modelo")
     st.write("Conteúdo para análise de mudança entre modelos.")
+
+elif st.session_state['current_page'] == "amostragem":
+    if st.session_state['subpage'] == "validacao":
+        st.header("Validação de Amostragem")
+        st.write("Conteúdo para validação de amostragem será implementado aqui.")
+        
+    elif st.session_state['subpage'] == "protocolo":
+        st.header("Protocolo de Amostragem")
+        st.write("Conteúdo para protocolo de amostragem será implementado aqui.")
 
 
