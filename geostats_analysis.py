@@ -403,46 +403,81 @@ elif st.session_state['current_page'] == "geostats":
                         key="n_classes_chi2"
                     )
 
-                    # Calcular teste Chi-quadrado
-                    observed, bins = np.histogram(df_filtrado[coluna], bins=n_classes)
-
-                    # Definir a distribuição teórica novamente para o teste
-                    if distribution == "Gaussian":
-                        theoretical_dist = stats.norm(loc=df_filtrado[coluna].mean(), scale=df_filtrado[coluna].std())
-                    elif distribution == "Lognormal":
-                        theoretical_dist = stats.lognorm(s=df_filtrado[coluna].std(), loc=0, scale=np.exp(df_filtrado[coluna].mean()))
-                    elif distribution == "Uniform":
-                        theoretical_dist = stats.uniform(loc=df_filtrado[coluna].min(), scale=df_filtrado[coluna].max()-df_filtrado[coluna].min())
-                    elif distribution == "Gamma":
-                        alpha_est = (df_filtrado[coluna].mean() ** 2) / (df_filtrado[coluna].var())
-                        beta_est = df_filtrado[coluna].mean() / df_filtrado[coluna].var()
-                        theoretical_dist = stats.gamma(a=alpha_est, scale=1/beta_est)
-                    else:  # Exponential
-                        theoretical_dist = stats.expon(scale=1/df_filtrado[coluna].mean())
-
-                    expected = len(df_filtrado[coluna]) * np.diff(
-                        theoretical_dist.cdf(bins)
-                    )
-                    
-                    # Filtrar classes com valores muito pequenos
-                    mask = (observed > 0) & (expected > 0)
-                    if np.sum(mask) >= 2:  # Precisa de pelo menos 2 classes para o teste
-                        chi2_stat, p_value = stats.chisquare(
-                            observed[mask], 
-                            expected[mask]
-                        )
+                    try:
+                        # Calcular frequências observadas
+                        observed, bins = np.histogram(df_filtrado[coluna], bins=n_classes)
                         
-                        st.write(f"""
-                        **Resultados do teste Chi-quadrado:**
-                        - Estatística Chi-quadrado: {chi2_stat:.2f}
-                        - Valor-p: {p_value:.4f}
-                        - Classes válidas: {np.sum(mask)} de {len(mask)}
-                        """)
-                    else:
-                        st.warning("""
-                        Não foi possível realizar o teste Chi-quadrado.
-                        Número insuficiente de classes com dados válidos.
-                        Tente aumentar o número de classes ou verificar a distribuição dos dados.
+                        # Calcular frequências esperadas baseadas na distribuição teórica
+                        bin_centers = (bins[1:] + bins[:-1])/2
+                        if distribution == "Gaussian":
+                            expected = len(df_filtrado[coluna]) * np.diff(
+                                stats.norm.cdf(bins, loc=df_filtrado[coluna].mean(), 
+                                                 scale=df_filtrado[coluna].std())
+                            )
+                        elif distribution == "Lognormal":
+                            expected = len(df_filtrado[coluna]) * np.diff(
+                                stats.lognorm.cdf(bins, s=df_filtrado[coluna].std(), 
+                                                  scale=np.exp(df_filtrado[coluna].mean()))
+                            )
+                        elif distribution == "Uniform":
+                            expected = len(df_filtrado[coluna]) * np.diff(
+                                stats.uniform.cdf(bins, loc=df_filtrado[coluna].min(), 
+                                                  scale=df_filtrado[coluna].max()-df_filtrado[coluna].min())
+                            )
+                        elif distribution == "Gamma":
+                            alpha_est = (df_filtrado[coluna].mean() ** 2) / (df_filtrado[coluna].var())
+                            beta_est = df_filtrado[coluna].mean() / df_filtrado[coluna].var()
+                            expected = len(df_filtrado[coluna]) * np.diff(
+                                stats.gamma.cdf(bins, a=alpha_est, scale=1/beta_est)
+                            )
+                        else:  # Exponential
+                            expected = len(df_filtrado[coluna]) * np.diff(
+                                stats.expon.cdf(bins, scale=1/df_filtrado[coluna].mean())
+                            )
+
+                        # Filtrar classes com valores muito pequenos e garantir valores positivos
+                        mask = (observed > 5) & (expected > 5)  # Regra comum: pelo menos 5 observações por classe
+                        
+                        if np.sum(mask) >= 2:  # Precisa de pelo menos 2 classes para o teste
+                            chi2_stat, p_value = stats.chisquare(
+                                observed[mask],
+                                expected[mask]
+                            )
+                            
+                            # Exibir resultados
+                            st.write(f"""
+                            **Resultados do teste Chi-quadrado:**
+                            - Estatística Chi-quadrado: {chi2_stat:.2f}
+                            - Valor-p: {p_value:.4f}
+                            - Classes válidas: {np.sum(mask)} de {len(mask)}
+                            """)
+                            
+                            # Adicionar interpretação do resultado
+                            alpha = 0.05  # Nível de significância
+                            if p_value < alpha:
+                                st.warning(f"""
+                                Com p-valor < {alpha}, rejeitamos a hipótese nula.
+                                Os dados não seguem a distribuição {distribution} especificada.
+                                """)
+                            else:
+                                st.success(f"""
+                                Com p-valor >= {alpha}, não rejeitamos a hipótese nula.
+                                Os dados podem seguir a distribuição {distribution} especificada.
+                                """)
+                        else:
+                            st.warning("""
+                            Não foi possível realizar o teste Chi-quadrado.
+                            Número insuficiente de classes com frequência adequada (mínimo 5 observações).
+                            Sugestões:
+                            1. Aumente o número de classes
+                            2. Use uma amostra maior
+                            3. Verifique se a distribuição escolhida é apropriada
+                            """)
+                    
+                    except Exception as e:
+                        st.error(f"""
+                        Erro ao realizar o teste Chi-quadrado: {str(e)}
+                        Verifique se os dados são apropriados para o teste e se a distribuição escolhida é adequada.
                         """)
             else:
                 st.warning(f"Nenhum dado disponível para {coluna} após a filtragem.")
