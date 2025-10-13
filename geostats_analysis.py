@@ -113,7 +113,7 @@ with uni_multi_col2:
         st.session_state['subpage'] = "multivariada"
 
 # Segunda linha com Análise de Mudança
-if st.sidebar.button("Análise de Mudança", key="change_btn", use_container_width=True):
+if st.sidebar.button("Mudança de Modelo", key="change_btn", use_container_width=True):
     st.session_state['current_page'] = "model_change"
 
 # Seção de Amostragem
