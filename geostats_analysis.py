@@ -402,15 +402,29 @@ elif st.session_state['current_page'] == "geostats":
                         value=10,
                         key="n_classes_chi2"
                     )
-                    
+
+                    # Definir a distribuição teórica novamente para o teste
+                    if distribution == "Gaussian":
+                        theoretical_dist = stats.norm(loc=df_filtrado[coluna].mean(), scale=df_filtrado[coluna].std())
+                    elif distribution == "Lognormal":
+                        theoretical_dist = stats.lognorm(s=df_filtrado[coluna].std(), loc=0, scale=np.exp(df_filtrado[coluna].mean()))
+                    elif distribution == "Uniform":
+                        theoretical_dist = stats.uniform(loc=df_filtrado[coluna].min(), scale=df_filtrado[coluna].max()-df_filtrado[coluna].min())
+                    elif distribution == "Gamma":
+                        alpha_est = (df_filtrado[coluna].mean() ** 2) / (df_filtrado[coluna].var())
+                        beta_est = df_filtrado[coluna].mean() / df_filtrado[coluna].var()
+                        theoretical_dist = stats.gamma(a=alpha_est, scale=1/beta_est)
+                    else:  # Exponential
+                        theoretical_dist = stats.expon(scale=1/df_filtrado[coluna].mean())
+
                     # Calcular teste Chi-quadrado
                     observed, bins = np.histogram(df_filtrado[coluna], bins=n_classes)
                     expected = len(df_filtrado[coluna]) * np.diff(
                         theoretical_dist.cdf(bins)
                     )
-                    
+
                     chi2_stat, p_value = stats.chisquare(observed, expected)
-                    
+
                     st.write(f"""
                     **Resultados do teste Chi-quadrado:**
                     - Estatística Chi-quadrado: {chi2_stat:.2f}
