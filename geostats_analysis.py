@@ -284,147 +284,282 @@ elif st.session_state['current_page'] == "geostats":
                 )
                 st.plotly_chart(fig2, use_container_width=True)
 
-                # Swath Plot
-                st.subheader("Swath Plot")
-                
-                # Opções do Swath Plot
-                swath_col1, swath_col2 = st.columns(2)
-                
-                with swath_col1:
-                    # Seleção da direção
-                    direcao = st.selectbox(
-                        "Direção do Swath:",
-                        options=["X (Leste-Oeste)", "Y (Norte-Sul)", "Z (Elevação)"],
-                        key="swath_direction"
-                    )
-                    
-                    # Tamanho das fatias
-                    slice_size = st.number_input(
-                        "Tamanho das fatias:",
-                        min_value=1.0,
-                        value=10.0,
-                        step=1.0,
-                        key="slice_size"
-                    )
-                    
-                    # Tipo de visualização
-                    plot_type = st.selectbox(
-                        "Tipo de visualização:",
-                        options=["Boxplot", "Tendência"],
-                        key="plot_type"
-                    )
-                
-                with swath_col2:
-                    # Cor dos boxplots
-                    box_color = st.color_picker(
-                        "Cor dos boxplots:",
-                        value="#1f77b4",
-                        key="box_color"
-                    )
-                    
-                    # Mostrar número de amostras
-                    show_samples = st.selectbox(
-                        "Exibir número de amostras:",
-                        options=["Não exibir", "Texto", "Histograma"],
-                        key="show_samples"
-                    )
-                    
-                    # Mostrar outliers (apenas para boxplot)
-                    if plot_type == "Boxplot":
-                        show_outliers = st.checkbox("Mostrar outliers", value=True, key="show_outliers")
+            st.subheader("Gráficos de Probabilidade")
 
-                # Encontrar colunas de coordenadas
-                coord_cols = {
-                    'X': next((col for col in df_filtrado.columns if 'XC' in col.upper()), None),
-                    'Y': next((col for col in df_filtrado.columns if 'YC' in col.upper()), None),
-                    'Z': next((col for col in df_filtrado.columns if 'ZC' in col.upper()), None)
-                }
+            # Layout para opções dos gráficos de probabilidade
+            prob_col1, prob_col2 = st.columns(2)
+
+            with prob_col1:
+                plot_type = st.selectbox(
+                    "Tipo de gráfico:",
+                    ["QQ-Plot", "PP-Plot", "NP-Plot"],
+                    key="prob_plot_type"
+                )
                 
-                # Criar o Swath Plot
+                distribution = st.selectbox(
+                    "Distribuição teórica:",
+                    ["Gaussian", "Lognormal", "Uniform", "Gamma", "Exponential"],
+                    key="theoretical_dist"
+                )
+
+            with prob_col2:
+                n_quantiles = st.slider(
+                    "Número de quantis:",
+                    min_value=10,
+                    max_value=100,
+                    value=20,
+                    step=10,
+                    key="n_quantiles"
+                )
+                
+                use_log = st.checkbox("Usar escala Log10", key="prob_log_scale")
+
+            # Preparar dados para os gráficos
+            import numpy as np
+            from scipy import stats
+
+            def prepare_probability_plot(data, plot_type, distribution, n_quantiles):
+                # Remover valores nulos
+                data = data.dropna()
+                
+                if distribution == "Gaussian":
+                    theoretical_dist = stats.norm(loc=data.mean(), scale=data.std())
+                elif distribution == "Lognormal":
+                    theoretical_dist = stats.lognorm(s=data.std(), loc=0, scale=np.exp(data.mean()))
+                elif distribution == "Uniform":
+                    theoretical_dist = stats.uniform(loc=data.min(), scale=data.max()-data.min())
+                elif distribution == "Gamma":
+                    # Estimativa dos parâmetros da distribuição gamma
+                    alpha_est = (data.mean() ** 2) / (data.var())
+                    beta_est = data.mean() / data.var()
+                    theoretical_dist = stats.gamma(a=alpha_est, scale=1/beta_est)
+                else:  # Exponential
+                    theoretical_dist = stats.expon(scale=1/data.mean())
+                
+                # Calcular quantis
+                empirical_quantiles = np.percentile(data, np.linspace(0, 100, n_quantiles))
+                theoretical_quantiles = theoretical_dist.ppf(np.linspace(0.01, 0.99, n_quantiles))
+                
+                if plot_type == "QQ-Plot":
+                    return empirical_quantiles, theoretical_quantiles
+                elif plot_type == "PP-Plot":
+                    emp_cdf = np.linspace(0, 1, n_quantiles)
+                    theo_cdf = theoretical_dist.cdf(empirical_quantiles)
+                    return emp_cdf, theo_cdf
+                else:  # NP-Plot
+                    sorted_data = np.sort(data)
+                    prob = np.linspace(0, 1, len(sorted_data))
+                    return sorted_data, stats.norm.ppf(prob)
+
+            # Criar o gráfico
+            if not df_filtrado[coluna].empty:
+                x_vals, y_vals = prepare_probability_plot(df_filtrado[coluna], plot_type, distribution, n_quantiles)
+                
+                fig_prob = px.scatter(
+                    x=x_vals,
+                    y=y_vals,
+                    title=f"{plot_type} - {coluna} vs {distribution}",
+                    labels={
+                        "x": "Valores Empíricos" if plot_type != "PP-Plot" else "Probabilidade Empírica",
+                        "y": "Valores Teóricos" if plot_type != "PP-Plot" else "Probabilidade Teórica"
+                    }
+                )
+                
+                # Adicionar linha de referência (primeira bissetriz)
+                min_val = min(x_vals.min(), y_vals.min())
+                max_val = max(x_vals.max(), y_vals.max())
+                fig_prob.add_scatter(
+                    x=[min_val, max_val],
+                    y=[min_val, max_val],
+                    mode="lines",
+                    line=dict(color="red", dash="dash"),
+                    name="Referência"
+                )
+                
+                # Aplicar escala logarítmica se selecionado
+                if use_log:
+                    if plot_type != "PP-Plot":  # PP-Plot sempre usa escala linear
+                        fig_prob.update_layout(
+                            xaxis_type="log",
+                            yaxis_type="log"
+                        )
+                
+                # Ajustar layout
+                fig_prob.update_layout(
+                    showlegend=True,
+                    width=800,
+                    height=500
+                )
+                
+                st.plotly_chart(fig_prob, use_container_width=True)
+                
+                # Realizar teste Chi-quadrado
+                if st.checkbox("Realizar teste Chi-quadrado", key="chi2_test"):
+                    n_classes = st.slider(
+                        "Número de classes para teste Chi-quadrado:",
+                        min_value=5,
+                        max_value=30,
+                        value=10,
+                        key="n_classes_chi2"
+                    )
+                    
+                    # Calcular teste Chi-quadrado
+                    observed, bins = np.histogram(df_filtrado[coluna], bins=n_classes)
+                    expected = len(df_filtrado[coluna]) * np.diff(
+                        theoretical_dist.cdf(bins)
+                    )
+                    
+                    chi2_stat, p_value = stats.chisquare(observed, expected)
+                    
+                    st.write(f"""
+                    **Resultados do teste Chi-quadrado:**
+                    - Estatística Chi-quadrado: {chi2_stat:.2f}
+                    - Valor-p: {p_value:.4f}
+                    """)
+            else:
+                st.warning(f"Nenhum dado disponível para {coluna} após a filtragem.")
+
+            # Swath Plot
+            st.subheader("Swath Plot")
+            
+            # Opções do Swath Plot
+            swath_col1, swath_col2 = st.columns(2)
+            
+            with swath_col1:
+                # Seleção da direção
+                direcao = st.selectbox(
+                    "Direção do Swath:",
+                    options=["X (Leste-Oeste)", "Y (Norte-Sul)", "Z (Elevação)"],
+                    key="swath_direction"
+                )
+                
+                # Tamanho das fatias
+                slice_size = st.number_input(
+                    "Tamanho das fatias:",
+                    min_value=1.0,
+                    value=10.0,
+                    step=1.0,
+                    key="slice_size"
+                )
+                
+                # Tipo de visualização
+                plot_type = st.selectbox(
+                    "Tipo de visualização:",
+                    options=["Boxplot", "Tendência"],
+                    key="plot_type"
+                )
+            
+            with swath_col2:
+                # Cor dos boxplots
+                box_color = st.color_picker(
+                    "Cor dos boxplots:",
+                    value="#1f77b4",
+                    key="box_color"
+                )
+                
+                # Mostrar número de amostras
+                show_samples = st.selectbox(
+                    "Exibir número de amostras:",
+                    options=["Não exibir", "Texto", "Histograma"],
+                    key="show_samples"
+                )
+                
+                # Mostrar outliers (apenas para boxplot)
+                if plot_type == "Boxplot":
+                    show_outliers = st.checkbox("Mostrar outliers", value=True, key="show_outliers")
+
+            # Encontrar colunas de coordenadas
+            coord_cols = {
+                'X': next((col for col in df_filtrado.columns if 'XC' in col.upper()), None),
+                'Y': next((col for col in df_filtrado.columns if 'YC' in col.upper()), None),
+                'Z': next((col for col in df_filtrado.columns if 'ZC' in col.upper()), None)
+            }
+            
+            # Criar o Swath Plot
+            if direcao == "X (Leste-Oeste)":
+                coord = coord_cols['X']
+            elif direcao == "Y (Norte-Sul)":
+                coord = coord_cols['Y']
+            else:
+                coord = coord_cols['Z']
+
+            # Calcular as fatias
+            if coord is not None:
+                min_coord = df_filtrado[coord].min()
+                max_coord = df_filtrado[coord].max()
+                n_slices = int((max_coord - min_coord) / slice_size) + 1
+                
+                # Criar os bins
+                df_filtrado['slice'] = pd.cut(df_filtrado[coord], 
+                                            bins=n_slices, 
+                                            labels=[f"Slice {i+1}" for i in range(n_slices)])
+                
+                # Calcular estatísticas por fatia
+                stats = df_filtrado.groupby('slice')[coluna].agg(['mean', 'std', 'count'])
+                slice_centers = [(i + 0.5) * slice_size + min_coord for i in range(n_slices)]
+                
+                # Criar o gráfico
+                if plot_type == "Boxplot":
+                    fig_swath = px.box(df_filtrado, x='slice', y=coluna,
+                                     title=f"Swath Plot - {direcao} - {coluna}",
+                                     points='outliers' if show_outliers else False,
+                                     color_discrete_sequence=[box_color])
+                    
+                    # Adicionar linha conectando as médias
+                    fig_swath.add_scatter(x=stats.index, y=stats['mean'],
+                                        mode='lines+markers',
+                                        name='Média',
+                                        line=dict(color='red', width=2))
+                    
+                else:  # Tendência
+                    fig_swath = px.line(x=slice_centers, y=stats['mean'],
+                                      title=f"Swath Plot - {direcao} - {coluna}")
+                    
+                    # Adicionar bandas de desvio padrão
+                    fig_swath.add_scatter(x=slice_centers, 
+                                        y=stats['mean'] + stats['std'],
+                                        mode='lines',
+                                        name='+1 Std Dev',
+                                        line=dict(dash='dash'))
+                    fig_swath.add_scatter(x=slice_centers, 
+                                        y=stats['mean'] - stats['std'],
+                                        mode='lines',
+                                        name='-1 Std Dev',
+                                        line=dict(dash='dash'),
+                                        fill='tonexty')
+
+                # Ajustar layout
+                fig_swath.update_layout(
+                    xaxis_title=coord,
+                    yaxis_title=coluna,
+                    showlegend=True
+                )
+                
+                # Mostrar número de amostras
+                if show_samples != "Não exibir":
+                    if show_samples == "Texto":
+                        for i, count in enumerate(stats['count']):
+                            fig_swath.add_annotation(x=i, y=stats['mean'].max(),
+                                                   text=f"n={count}",
+                                                   showarrow=False)
+                    else:  # Histograma
+                        fig_swath.add_bar(x=stats.index, y=stats['count'],
+                                        name='Número de amostras',
+                                        yaxis='y2')
+                        fig_swath.update_layout(
+                            yaxis2=dict(title='Número de amostras',
+                                      overlaying='y',
+                                      side='right')
+                        )
+                
+                st.plotly_chart(fig_swath, use_container_width=True)
+            else:
                 if direcao == "X (Leste-Oeste)":
-                    coord = coord_cols['X']
+                    st.warning("Nenhuma coluna contendo 'XC' foi encontrada no conjunto de dados.")
                 elif direcao == "Y (Norte-Sul)":
-                    coord = coord_cols['Y']
+                    st.warning("Nenhuma coluna contendo 'YC' foi encontrada no conjunto de dados.")
                 else:
-                    coord = coord_cols['Z']
-
-                # Calcular as fatias
-                if coord is not None:
-                    min_coord = df_filtrado[coord].min()
-                    max_coord = df_filtrado[coord].max()
-                    n_slices = int((max_coord - min_coord) / slice_size) + 1
-                    
-                    # Criar os bins
-                    df_filtrado['slice'] = pd.cut(df_filtrado[coord], 
-                                                bins=n_slices, 
-                                                labels=[f"Slice {i+1}" for i in range(n_slices)])
-                    
-                    # Calcular estatísticas por fatia
-                    stats = df_filtrado.groupby('slice')[coluna].agg(['mean', 'std', 'count'])
-                    slice_centers = [(i + 0.5) * slice_size + min_coord for i in range(n_slices)]
-                    
-                    # Criar o gráfico
-                    if plot_type == "Boxplot":
-                        fig_swath = px.box(df_filtrado, x='slice', y=coluna,
-                                         title=f"Swath Plot - {direcao} - {coluna}",
-                                         points='outliers' if show_outliers else False,
-                                         color_discrete_sequence=[box_color])
-                        
-                        # Adicionar linha conectando as médias
-                        fig_swath.add_scatter(x=stats.index, y=stats['mean'],
-                                            mode='lines+markers',
-                                            name='Média',
-                                            line=dict(color='red', width=2))
-                        
-                    else:  # Tendência
-                        fig_swath = px.line(x=slice_centers, y=stats['mean'],
-                                          title=f"Swath Plot - {direcao} - {coluna}")
-                        
-                        # Adicionar bandas de desvio padrão
-                        fig_swath.add_scatter(x=slice_centers, 
-                                            y=stats['mean'] + stats['std'],
-                                            mode='lines',
-                                            name='+1 Std Dev',
-                                            line=dict(dash='dash'))
-                        fig_swath.add_scatter(x=slice_centers, 
-                                            y=stats['mean'] - stats['std'],
-                                            mode='lines',
-                                            name='-1 Std Dev',
-                                            line=dict(dash='dash'),
-                                            fill='tonexty')
-
-                    # Ajustar layout
-                    fig_swath.update_layout(
-                        xaxis_title=coord,
-                        yaxis_title=coluna,
-                        showlegend=True
-                    )
-                    
-                    # Mostrar número de amostras
-                    if show_samples != "Não exibir":
-                        if show_samples == "Texto":
-                            for i, count in enumerate(stats['count']):
-                                fig_swath.add_annotation(x=i, y=stats['mean'].max(),
-                                                       text=f"n={count}",
-                                                       showarrow=False)
-                        else:  # Histograma
-                            fig_swath.add_bar(x=stats.index, y=stats['count'],
-                                            name='Número de amostras',
-                                            yaxis='y2')
-                            fig_swath.update_layout(
-                                yaxis2=dict(title='Número de amostras',
-                                          overlaying='y',
-                                          side='right')
-                            )
-                    
-                    st.plotly_chart(fig_swath, use_container_width=True)
-                else:
-                    if direcao == "X (Leste-Oeste)":
-                        st.warning("Nenhuma coluna contendo 'XC' foi encontrada no conjunto de dados.")
-                    elif direcao == "Y (Norte-Sul)":
-                        st.warning("Nenhuma coluna contendo 'YC' foi encontrada no conjunto de dados.")
-                    else:
-                        st.warning("Nenhuma coluna contendo 'ZC' foi encontrada no conjunto de dados.")
+                    st.warning("Nenhuma coluna contendo 'ZC' foi encontrada no conjunto de dados.")
 
         else:
             st.warning("Faça upload do arquivo na página principal para começar.")
