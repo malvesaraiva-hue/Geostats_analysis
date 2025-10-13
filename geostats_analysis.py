@@ -100,18 +100,21 @@ if st.sidebar.button("Página Principal", key="main_btn", use_container_width=Tr
 
 # Seção de Análise Exploratória
 st.sidebar.markdown("### Análise Exploratória")
-col1, col2, col3 = st.sidebar.columns(3)
-with col1:
+
+# Primeira linha com Univariada e Multivariada
+uni_multi_col1, uni_multi_col2 = st.sidebar.columns(2)
+with uni_multi_col1:
     if st.button("Univariada", key="uni_btn", use_container_width=True):
         st.session_state['current_page'] = "geostats"
         st.session_state['subpage'] = "univariada"
-with col2:
+with uni_multi_col2:
     if st.button("Multivariada", key="multi_btn", use_container_width=True):
         st.session_state['current_page'] = "geostats"
         st.session_state['subpage'] = "multivariada"
-with col3:
-    if st.button("Mudança", key="change_btn", use_container_width=True):
-        st.session_state['current_page'] = "model_change"
+
+# Segunda linha com Análise de Mudança
+if st.sidebar.button("Análise de Mudança", key="change_btn", use_container_width=True):
+    st.session_state['current_page'] = "model_change"
 
 # Seção de Amostragem
 st.sidebar.markdown("### Amostragem")
