@@ -1,6 +1,13 @@
 matplotlib
 seaborn
-streamlit
+streamlit>=1.24.0
+numpy>=1.22.0
+pandas>=1.5.0
+plotly>=5.13.0
+pyarrow>=12.0.0  # Para suporte a parquet
+scikit-learn>=1.0.0
+scipy>=1.10.0
+sqlalchemy>=2.0.0  # Para melhor integração com SQLite
 plotly
 statsmodels
 pyarrow

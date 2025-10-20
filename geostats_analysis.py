@@ -1,11 +1,14 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from db_manager import DBManager
+import os
+from pathlib import Path
 
-# Configurar o tamanho máximo do upload para 1000 MB
+# Configuração inicial da página
 st.set_page_config(
     page_title="Análise Geoestatística",
-    layout="wide",
+    layout="wide", 
     initial_sidebar_state="expanded",
 )
 
@@ -79,11 +82,20 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Função para limpar os dados
 def reset_data():
+    if 'table_name' in st.session_state and st.session_state['table_name']:
+        # Remove a tabela do SQLite
+        db = DBManager()
+        db.drop_table(st.session_state['table_name'])
     st.session_state['df'] = None
+    st.session_state['table_name'] = None
 
+# Inicialização do estado da sessão
 if 'df' not in st.session_state:
     st.session_state['df'] = None
+if 'table_name' not in st.session_state:
+    st.session_state['table_name'] = None
 if 'current_page' not in st.session_state:
     st.session_state['current_page'] = "main"
 if 'subpage' not in st.session_state:
@@ -139,22 +151,89 @@ if st.session_state['current_page'] == "main":
         file_extension = model_1.name.split('.')[-1].lower()
         
         try:
+            # Inicializar DBManager
+            db = DBManager()
+            
+            # Carregar dados em chunks para arquivos CSV grandes
             if file_extension == 'csv':
-                st.session_state['df'] = pd.read_csv(model_1)
-            elif file_extension == 'parquet':
-                st.session_state['df'] = pd.read_parquet(model_1)
+                # Primeiro, vamos tentar carregar uma amostra para inferir os tipos de dados
+                sample_df = pd.read_csv(model_1, nrows=1000)
+                dtypes = sample_df.dtypes
                 
+                # Resetar o ponteiro do arquivo
+                model_1.seek(0)
+                
+                # Carregar o arquivo em chunks
+                chunk_size = 100000  # Ajuste conforme necessário
+                chunks = pd.read_csv(model_1, dtype=dtypes.to_dict(), chunksize=chunk_size)
+                
+                # Criar uma tabela vazia com a estrutura correta
+                table_name = f"data_{pd.util.hash_pandas_object(sample_df).sum():x}"
+                first_chunk = True
+                
+                with st.spinner('Carregando dados para SQLite...'):
+                    progress_bar = st.progress(0)
+                    for i, chunk in enumerate(chunks):
+                        if first_chunk:
+                            db.dataframe_to_sql(chunk, table_name)
+                            first_chunk = False
+                        else:
+                            chunk.to_sql(table_name, db.db_path, if_exists='append', index=False)
+                        progress_bar.progress(min((i + 1) * chunk_size / len(chunk), 1.0))
+                
+            elif file_extension == 'parquet':
+                # Para arquivos parquet, vamos carregar em chunks usando pyarrow
+                import pyarrow.parquet as pq
+                
+                # Salvar o arquivo temporariamente
+                temp_file = Path("temp.parquet")
+                temp_file.write_bytes(model_1.getvalue())
+                
+                # Abrir o arquivo parquet
+                parquet_file = pq.ParquetFile(temp_file)
+                
+                # Criar uma tabela vazia com a estrutura correta
+                first_chunk = True
+                table_name = f"data_{hash(str(parquet_file.metadata)):x}"
+                
+                with st.spinner('Carregando dados para SQLite...'):
+                    progress_bar = st.progress(0)
+                    total_rows = parquet_file.metadata.num_rows
+                    rows_processed = 0
+                    
+                    for i in range(parquet_file.num_row_groups):
+                        chunk = parquet_file.read_row_group(i).to_pandas()
+                        if first_chunk:
+                            db.dataframe_to_sql(chunk, table_name)
+                            first_chunk = False
+                        else:
+                            chunk.to_sql(table_name, db.db_path, if_exists='append', index=False)
+                        
+                        rows_processed += len(chunk)
+                        progress_bar.progress(min(rows_processed / total_rows, 1.0))
+                
+                # Remover arquivo temporário
+                temp_file.unlink()
+            
+            # Carregar uma amostra para visualização inicial
+            st.session_state['df'] = db.get_table_sample(table_name)
+            st.session_state['table_name'] = table_name
+            
             # Exibir informação sobre o formato do arquivo carregado
-            st.info(f"Arquivo {model_1.name} carregado com sucesso ({file_extension.upper()})")
+            st.info(f"Arquivo {model_1.name} carregado com sucesso no SQLite ({file_extension.upper()})")
+            
         except Exception as e:
             st.error(f"Erro ao carregar o arquivo: {str(e)}")
             st.session_state['df'] = None
+            st.session_state['table_name'] = None
 
     if st.button("Resetar dados"):
         reset_data()
 
-    if st.session_state['df'] is not None:
-        df = st.session_state['df']
+    if st.session_state['table_name'] is not None:
+        db = DBManager()
+        # Carregar dados para visualização 3D
+        df = db.read_sql_table(st.session_state['table_name'])
         st.success("Arquivo carregado com sucesso!")
         
         st.subheader("Visualização 3D dos Pontos")
@@ -232,9 +311,11 @@ elif st.session_state['current_page'] == "geostats":
     if st.session_state['subpage'] == "univariada":
         st.header("Análise Exploratória - Estatística Univariada")
 
-        # Verifica se o DataFrame está carregado
-        if st.session_state['df'] is not None:
-            df = st.session_state['df']
+        # Verifica se a tabela está carregada
+        if st.session_state['table_name'] is not None:
+            db = DBManager()
+            # Carregar dados para análise univariada
+            df = db.read_sql_table(st.session_state['table_name'])
 
             # Identificar variáveis categóricas e contínuas
             variaveis_categoricas = df.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -646,9 +727,11 @@ elif st.session_state['current_page'] == "geostats":
     elif st.session_state['subpage'] == "multivariada":
         st.header("Análise Exploratória - Estatística Multivariada")
         
-        # Verifica se o DataFrame está carregado
-        if st.session_state['df'] is not None:
-            df = st.session_state['df']
+        # Verifica se a tabela está carregada
+        if st.session_state['table_name'] is not None:
+            db = DBManager()
+            # Carregar dados para análise multivariada
+            df = db.read_sql_table(st.session_state['table_name'])
             
             # Identificar variáveis categóricas e contínuas
             variaveis_categoricas = df.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -775,12 +858,12 @@ elif st.session_state['current_page'] == "geostats":
                 else:
                     st.warning("Selecione pelo menos duas variáveis para a matriz de correlação.")
 
-    # Verifica se o DataFrame está carregado
-    if st.session_state['df'] is not None:
-        df = st.session_state['df']
-    
+    # Verifica se a tabela está carregada
+    if st.session_state['table_name'] is not None:
+        db = DBManager()
+        df = db.read_sql_table(st.session_state['table_name'])
     else:
-        st.warning("Faça upload do arquivo .csv na página principal para começar.")
+        st.warning("Faça upload do arquivo na página principal para começar.")
 
 elif st.session_state['current_page'] == "model_change":
     st.header("Análise de Mudança de Modelo")
