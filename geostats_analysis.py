@@ -4,9 +4,14 @@ import plotly.express as px
 import dask.dataframe as dd
 from dask.distributed import Client
 import os
+import multiprocessing
 
-# Iniciar o cliente Dask
-client = Client()
+# Função para iniciar o cliente Dask
+@st.cache_resource
+def get_dask_client():
+    if multiprocessing.current_process().name == 'MainProcess':
+        return Client(processes=False)  # Usar threads em vez de processos
+    return None
 
 # Configurar o tamanho máximo do upload para 1000 MB
 st.set_page_config(
@@ -14,6 +19,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Inicializar o cliente Dask
+client = get_dask_client()
 
 # Aumentar o limite de upload
 st.config.set_option('server.maxUploadSize', 1000)
