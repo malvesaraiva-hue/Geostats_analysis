@@ -1,6 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import dask.dataframe as dd
+from dask.distributed import Client
+import os
+
+# Iniciar o cliente Dask
+client = Client()
 
 # Configurar o tamanho máximo do upload para 1000 MB
 st.set_page_config(
@@ -80,7 +86,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def reset_data():
+    if 'file_path' in st.session_state and st.session_state['file_path']:
+        try:
+            os.remove(st.session_state['file_path'])
+        except:
+            pass
     st.session_state['df'] = None
+    st.session_state['file_path'] = None
+    st.session_state['total_rows'] = None
+    st.session_state['columns'] = None
+    st.session_state['dtypes'] = None
 
 if 'df' not in st.session_state:
     st.session_state['df'] = None
@@ -139,13 +154,33 @@ if st.session_state['current_page'] == "main":
         file_extension = model_1.name.split('.')[-1].lower()
         
         try:
+            # Salvar o arquivo temporariamente
+            temp_path = f"temp_upload.{file_extension}"
+            with open(temp_path, "wb") as f:
+                f.write(model_1.getvalue())
+            
+            # Carregar com Dask
             if file_extension == 'csv':
-                st.session_state['df'] = pd.read_csv(model_1)
+                ddf = dd.read_csv(temp_path)
             elif file_extension == 'parquet':
-                st.session_state['df'] = pd.read_parquet(model_1)
-                
+                ddf = dd.read_parquet(temp_path)
+            
+            # Armazenar metadados
+            st.session_state['total_rows'] = len(ddf)
+            st.session_state['columns'] = ddf.columns
+            st.session_state['dtypes'] = ddf.dtypes
+            st.session_state['file_path'] = temp_path
+            
+            # Carregar apenas uma amostra inicial para visualização
+            sample_size = 10000  # Ajuste conforme necessário
+            st.session_state['df'] = ddf.sample(n=sample_size).compute()
+            
             # Exibir informação sobre o formato do arquivo carregado
-            st.info(f"Arquivo {model_1.name} carregado com sucesso ({file_extension.upper()})")
+            st.info(f"""
+            Arquivo {model_1.name} carregado com sucesso ({file_extension.upper()})
+            Total de linhas: {st.session_state['total_rows']:,}
+            Amostra carregada: {sample_size:,} linhas
+            """)
         except Exception as e:
             st.error(f"Erro ao carregar o arquivo: {str(e)}")
             st.session_state['df'] = None
