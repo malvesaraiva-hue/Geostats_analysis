@@ -174,20 +174,25 @@ if st.session_state['current_page'] == "main":
                 ddf = dd.read_parquet(temp_path)
             
             # Armazenar metadados
-            st.session_state['total_rows'] = len(ddf)
+            total_rows = len(ddf.compute())  # Computar o tamanho total
+            st.session_state['total_rows'] = total_rows
             st.session_state['columns'] = ddf.columns
             st.session_state['dtypes'] = ddf.dtypes
             st.session_state['file_path'] = temp_path
             
+            # Calcular a fração para obter aproximadamente 10000 linhas de amostra
+            target_sample_size = 10000
+            sample_frac = min(1.0, target_sample_size / total_rows)
+            
             # Carregar apenas uma amostra inicial para visualização
-            sample_size = 10000  # Ajuste conforme necessário
-            st.session_state['df'] = ddf.sample(n=sample_size).compute()
+            st.session_state['df'] = ddf.sample(frac=sample_frac).compute()
+            actual_sample_size = len(st.session_state['df'])
             
             # Exibir informação sobre o formato do arquivo carregado
             st.info(f"""
             Arquivo {model_1.name} carregado com sucesso ({file_extension.upper()})
-            Total de linhas: {st.session_state['total_rows']:,}
-            Amostra carregada: {sample_size:,} linhas
+            Total de linhas: {total_rows:,}
+            Amostra carregada: {actual_sample_size:,} linhas
             """)
         except Exception as e:
             st.error(f"Erro ao carregar o arquivo: {str(e)}")
