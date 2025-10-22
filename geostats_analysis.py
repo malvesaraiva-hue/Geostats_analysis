@@ -1,17 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import dask.dataframe as dd
-from dask.distributed import Client
-import os
-import multiprocessing
-
-# Função para iniciar o cliente Dask
-@st.cache_resource
-def get_dask_client():
-    if multiprocessing.current_process().name == 'MainProcess':
-        return Client(processes=False)  # Usar threads em vez de processos
-    return None
 
 # Configurar o tamanho máximo do upload para 1000 MB
 st.set_page_config(
@@ -19,9 +8,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# Inicializar o cliente Dask
-client = get_dask_client()
 
 # Aumentar o limite de upload
 st.config.set_option('server.maxUploadSize', 1000)
@@ -94,16 +80,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def reset_data():
-    if 'file_path' in st.session_state and st.session_state['file_path']:
-        try:
-            os.remove(st.session_state['file_path'])
-        except:
-            pass
     st.session_state['df'] = None
-    st.session_state['file_path'] = None
-    st.session_state['total_rows'] = None
-    st.session_state['columns'] = None
-    st.session_state['dtypes'] = None
 
 if 'df' not in st.session_state:
     st.session_state['df'] = None
@@ -136,7 +113,7 @@ with uni_multi_col2:
         st.session_state['subpage'] = "multivariada"
 
 # Segunda linha com Análise de Mudança
-if st.sidebar.button("Mudança de Modelo", key="change_btn", use_container_width=True):
+if st.sidebar.button("Análise de Mudança", key="change_btn", use_container_width=True):
     st.session_state['current_page'] = "model_change"
 
 # Seção de Amostragem
@@ -162,38 +139,13 @@ if st.session_state['current_page'] == "main":
         file_extension = model_1.name.split('.')[-1].lower()
         
         try:
-            # Salvar o arquivo temporariamente
-            temp_path = f"temp_upload.{file_extension}"
-            with open(temp_path, "wb") as f:
-                f.write(model_1.getvalue())
-            
-            # Carregar com Dask
             if file_extension == 'csv':
-                ddf = dd.read_csv(temp_path)
+                st.session_state['df'] = pd.read_csv(model_1)
             elif file_extension == 'parquet':
-                ddf = dd.read_parquet(temp_path)
-            
-            # Armazenar metadados
-            total_rows = len(ddf.compute())  # Computar o tamanho total
-            st.session_state['total_rows'] = total_rows
-            st.session_state['columns'] = ddf.columns
-            st.session_state['dtypes'] = ddf.dtypes
-            st.session_state['file_path'] = temp_path
-            
-            # Calcular a fração para obter aproximadamente 10000 linhas de amostra
-            target_sample_size = 10000
-            sample_frac = min(1.0, target_sample_size / total_rows)
-            
-            # Carregar apenas uma amostra inicial para visualização
-            st.session_state['df'] = ddf.sample(frac=sample_frac).compute()
-            actual_sample_size = len(st.session_state['df'])
-            
+                st.session_state['df'] = pd.read_parquet(model_1)
+                
             # Exibir informação sobre o formato do arquivo carregado
-            st.info(f"""
-            Arquivo {model_1.name} carregado com sucesso ({file_extension.upper()})
-            Total de linhas: {total_rows:,}
-            Amostra carregada: {actual_sample_size:,} linhas
-            """)
+            st.info(f"Arquivo {model_1.name} carregado com sucesso ({file_extension.upper()})")
         except Exception as e:
             st.error(f"Erro ao carregar o arquivo: {str(e)}")
             st.session_state['df'] = None
@@ -842,3 +794,5 @@ elif st.session_state['current_page'] == "amostragem":
     elif st.session_state['subpage'] == "protocolo":
         st.header("Protocolo de Amostragem")
         st.write("Conteúdo para protocolo de amostragem será implementado aqui.")
+
+
